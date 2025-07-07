@@ -27,7 +27,7 @@ const VERSION = '0.3.3';
 const API_BASE = 'https://kyfw.12306.cn';
 const WEB_URL = 'https://www.12306.cn/index/';
 const LCQUERY_INIT_URL = 'https://kyfw.12306.cn/otn/lcQuery/init';
-const LCQUERY_PATH = await getLCQueryPath();
+let LCQUERY_PATH = '';
 const MISSING_STATIONS: StationData[] = [
     {
         station_id: '@cdd',
@@ -42,64 +42,21 @@ const MISSING_STATIONS: StationData[] = [
         r2: '',
     },
 ];
-const STATIONS: Record<string, StationData> = await getStations(); //以Code为键
-const CITY_STATIONS: Record<
+let STATIONS: Record<string, StationData> = {}; //以Code为键
+let CITY_STATIONS: Record<
     string,
     { station_code: string; station_name: string }[]
-> = (() => {
-    const result: Record<
-        string,
-        { station_code: string; station_name: string }[]
-    > = {};
-    for (const station of Object.values(STATIONS)) {
-        const city = station.city;
-        if (!result[city]) {
-            result[city] = [];
-        }
-        result[city].push({
-            station_code: station.station_code,
-            station_name: station.station_name,
-        });
-    }
-    return result;
-})(); //以城市名名为键，位于该城市的的所有Station列表的记录
+> = {}; //以城市名名为键，位于该城市的的所有Station列表的记录
 
-const CITY_CODES: Record<
+let CITY_CODES: Record<
     string,
     { station_code: string; station_name: string }
-> = (() => {
-    const result: Record<
-        string,
-        { station_code: string; station_name: string }
-    > = {};
-    for (const [city, stations] of Object.entries(CITY_STATIONS)) {
-        for (const station of stations) {
-            if (station.station_name == city) {
-                result[city] = station;
-                break;
-            }
-        }
-    }
-    return result;
-})(); //以城市名名为键的Station记录
+> = {}; //以城市名名为键的Station记录
 
-const NAME_STATIONS: Record<
+let NAME_STATIONS: Record<
     string,
     { station_code: string; station_name: string }
-> = (() => {
-    const result: Record<
-        string,
-        { station_code: string; station_name: string }
-    > = {};
-    for (const station of Object.values(STATIONS)) {
-        const station_name = station.station_name;
-        result[station_name] = {
-            station_code: station.station_code,
-            station_name: station.station_name,
-        };
-    }
-    return result;
-})(); //以车站名为键的Station记录
+> = {}; //以车站名为键的Station记录
 
 const SEAT_SHORT_TYPES = {
     swz: '商务座',
@@ -1352,7 +1309,59 @@ async function getLCQueryPath(): Promise<string> {
     return match[1];
 }
 
-async function init() {}
+async function init() {
+    // 初始化 LCQUERY_PATH
+    LCQUERY_PATH = await getLCQueryPath();
+    
+    // 初始化 STATIONS
+    STATIONS = await getStations();
+    
+    // 初始化 CITY_STATIONS
+    const cityStationsResult: Record<
+        string,
+        { station_code: string; station_name: string }[]
+    > = {};
+    for (const station of Object.values(STATIONS)) {
+        const city = station.city;
+        if (!cityStationsResult[city]) {
+            cityStationsResult[city] = [];
+        }
+        cityStationsResult[city].push({
+            station_code: station.station_code,
+            station_name: station.station_name,
+        });
+    }
+    CITY_STATIONS = cityStationsResult;
+    
+    // 初始化 CITY_CODES
+    const cityCodesResult: Record<
+        string,
+        { station_code: string; station_name: string }
+    > = {};
+    for (const [city, stations] of Object.entries(CITY_STATIONS)) {
+        for (const station of stations) {
+            if (station.station_name == city) {
+                cityCodesResult[city] = station;
+                break;
+            }
+        }
+    }
+    CITY_CODES = cityCodesResult;
+    
+    // 初始化 NAME_STATIONS
+    const nameStationsResult: Record<
+        string,
+        { station_code: string; station_name: string }
+    > = {};
+    for (const station of Object.values(STATIONS)) {
+        const station_name = station.station_name;
+        nameStationsResult[station_name] = {
+            station_code: station.station_code,
+            station_name: station.station_name,
+        };
+    }
+    NAME_STATIONS = nameStationsResult;
+}
 
 program
     .name('mcp-server-12306')
@@ -1387,3 +1396,8 @@ program
     });
 
 program.parse();
+
+// 为 smithery 添加默认导出
+export default function({ sessionId, config }: { sessionId: string; config: any }) {
+    return server;
+}
