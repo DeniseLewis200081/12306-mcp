@@ -1,3 +1,4 @@
 runtime: "typescript"
+entry: "./src/index.ts"
 startCommand:
   type: "stdio"
